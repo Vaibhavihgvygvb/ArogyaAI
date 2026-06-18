@@ -83,3 +83,22 @@ Doctor reviews progress before next consultation.
 * HIPAA-like privacy principles.
 
 ---
+
+## Sprint 1 — Completed
+
+Backend foundation built and verified:
+
+| Component | Status |
+|---|---|
+| SQLite database infrastructure | ✅ Done |
+| Doctor model (`doctors` table) | ✅ Done |
+| Patient model (`patients` table) | ✅ Done |
+| Visit model (`visits` table) with FK relationships | ✅ Done |
+| Pydantic schemas (Base, Create, Update, Response) | ✅ Done |
+| Visit CRUD Service (7 methods) | ✅ Done |
+| REST API endpoints (POST, GET, PUT, DELETE /visits) | ✅ Done |
+| Swagger UI verification at `/docs` | ✅ Verified |
+
+All endpoints tested manually — create, read (single + list), update, and delete operations confirmed working against SQLite.
+
+---

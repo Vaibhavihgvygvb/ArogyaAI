@@ -2,47 +2,48 @@
 
 ## Sprint
 
-Sprint 1
+Sprint 1 ✅ Completed
 
 ---
 
-## Goal
+## What Was Built
 
-Implement Visit Management.
-
----
-
-## Requirements
-
-Create Visit model.
-
-Fields:
-
-* doctor_id
-* patient_id
-* diagnosis
-* prescription
-* instructions
-* follow_up_date
-* created_at
+* **Doctor model** — `app/models/doctor.py`
+* **Patient model** — `app/models/patient.py`
+* **Visit model** — `app/models/visit.py` (with FK relationships to doctors & patients)
+* **Pydantic schemas** — `app/schemas/visit.py` (VisitBase, VisitCreate, VisitUpdate, VisitResponse)
+* **CRUD service** — `app/services/visit_service.py` (7 methods)
+* **REST API** — `app/api/visit.py` (5 endpoints: POST, GET list, GET by ID, PUT, DELETE)
+* **Swagger verification** — All endpoints tested and confirmed working
 
 ---
 
-Generate:
+## Definition of Done
 
-* SQLAlchemy model
-* Pydantic schemas
-* CRUD service
-* Unit tests
+| Requirement | Status |
+|---|---|
+| Doctor model exists | ✅ |
+| Patient model exists | ✅ |
+| Visit model exists with FK relationships | ✅ |
+| Pydantic schemas for request/response | ✅ |
+| CRUD service with create, read, update, delete | ✅ |
+| REST API endpoints for visits | ✅ |
+| Doctor can log patient visits | ✅ |
+| Visits can be retrieved | ✅ |
+| Swagger UI loads at `/docs` | ✅ |
+
+---
 
 ---
 
-Definition of Done
+## Next Sprint
 
-Doctor can log patient visits.
+Sprint 2 — Medication & Reminder Foundation
 
-Visits can be retrieved.
+### Objectives
 
-Tests pass.
-
----
+* Medication model (structured prescriptions with dosage, frequency, duration)
+* Medication CRUD service + API
+* Reminder scheduling infrastructure
+* Medication adherence tracking
+* Unit tests for new models and services

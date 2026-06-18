@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from datetime import datetime
 from sqlalchemy import String, DateTime, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.base import Base
 
 class Doctor(Base):
@@ -13,3 +15,5 @@ class Doctor(Base):
     specialization: Mapped[str | None] = mapped_column(String(255), nullable=True)
     clinic_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    visits: Mapped[list[Visit]] = relationship(back_populates="doctor")
