@@ -3,6 +3,8 @@ from datetime import date, datetime, timezone
 from sqlalchemy import select, func, or_
 from sqlalchemy.orm import Session
 
+from app.cache.service import CacheService
+from app.core.config import settings
 from app.models.enums import AppointmentStatus, UserRole
 from app.models.user import User
 from app.models.doctor import Doctor
@@ -50,6 +52,11 @@ class DashboardService:
 
     @staticmethod
     def get_doctor_dashboard(db: Session, user: User) -> DoctorDashboardResponse:
+        cache_key = CacheService.build_key(CacheService.NAMESPACE_DASHBOARD, "doctor", str(user.id))
+        cached = CacheService.get(cache_key)
+        if cached is not None:
+            return DoctorDashboardResponse.model_validate_json(cached)
+
         doctor = DoctorService.get_doctor_by_user_id(db, user.id)
         if not doctor:
             return DoctorDashboardResponse()
@@ -85,7 +92,7 @@ class DashboardService:
             StatCard(label="Completed", value=completed_count),
         ]
 
-        return DoctorDashboardResponse(
+        result = DoctorDashboardResponse(
             profile=doctor_profile,
             todays_appointments=today_appts,
             upcoming_appointments=upcoming_appts,
@@ -98,6 +105,8 @@ class DashboardService:
             medical_record_stats=mr_stats,
             summary_cards=summary_cards,
         )
+        CacheService.set(cache_key, result, ttl=settings.CACHE_TTL_DASHBOARD)
+        return result
 
     # ------------------------------------------------------------------
     #  Patient Dashboard
@@ -105,6 +114,11 @@ class DashboardService:
 
     @staticmethod
     def get_patient_dashboard(db: Session, user: User) -> PatientDashboardResponse:
+        cache_key = CacheService.build_key(CacheService.NAMESPACE_DASHBOARD, "patient", str(user.id))
+        cached = CacheService.get(cache_key)
+        if cached is not None:
+            return PatientDashboardResponse.model_validate_json(cached)
+
         patient = PatientService.get_patient_by_user_id(db, user.id)
         if not patient:
             return PatientDashboardResponse()
@@ -144,7 +158,7 @@ class DashboardService:
             StatCard(label="Upcoming Appointments", value=len(upcoming_appts)),
         ]
 
-        return PatientDashboardResponse(
+        result = PatientDashboardResponse(
             profile=patient_profile,
             upcoming_appointments=upcoming_appts,
             medical_history_summary=medical_history_summary,
@@ -155,6 +169,8 @@ class DashboardService:
             timeline_preview=timeline,
             health_summary_cards=health_cards,
         )
+        CacheService.set(cache_key, result, ttl=settings.CACHE_TTL_DASHBOARD)
+        return result
 
     # ------------------------------------------------------------------
     #  Admin Dashboard
@@ -162,6 +178,10 @@ class DashboardService:
 
     @staticmethod
     def get_admin_dashboard(db: Session, user: User) -> AdminDashboardResponse:
+        cache_key = CacheService.build_key(CacheService.NAMESPACE_DASHBOARD, "admin")
+        cached = CacheService.get(cache_key)
+        if cached is not None:
+            return AdminDashboardResponse.model_validate_json(cached)
         total_users = DashboardService._count_entity(db, User)
         total_doctors = DashboardService._count_entity(db, Doctor)
         total_patients = DashboardService._count_entity(db, Patient)
@@ -206,7 +226,7 @@ class DashboardService:
             StatCard(label="Prescriptions", value=total_prescriptions),
         ]
 
-        return AdminDashboardResponse(
+        result = AdminDashboardResponse(
             total_users=total_users,
             total_doctors=total_doctors,
             total_patients=total_patients,
@@ -225,6 +245,8 @@ class DashboardService:
             recent_prescriptions=recent_rxs,
             summary_cards=summary_cards,
         )
+        CacheService.set(cache_key, result, ttl=settings.CACHE_TTL_DASHBOARD)
+        return result
 
     # ------------------------------------------------------------------
     #  Helper – COUNT

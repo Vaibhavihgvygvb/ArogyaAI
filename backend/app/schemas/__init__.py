@@ -23,4 +23,23 @@ from app.schemas.dashboard import (
     PlatformActivity,
     RegistrationSummary,
 )
+from app.schemas.analytics import (
+    PlatformAnalyticsResponse,
+    DoctorAnalyticsResponse,
+    PatientAnalyticsResponse,
+    SystemAnalyticsResponse,
+    AnalyticsSummaryResponse,
+    EntityCount,
+    ActivityTrend,
+    GrowthMetric,
+    SummaryCard as AnalyticsSummaryCard,
+)
+from app.schemas.job import (
+    JobCreate,
+    JobUpdate,
+    JobResponse,
+    JobRetryRequest,
+    JobListResponse,
+    JobHealthResponse,
+)
 

@@ -153,8 +153,30 @@ Doctor reviews progress before next consultation. *(Planned)*
 - Admin dashboard: entity counts (10 entities), system stats, growth metrics, platform activity, recent registrations/appointments/prescriptions, summary cards
 - 50 tests covering auth, RBAC, edge cases, response shapes
 
+### Enterprise Analytics APIs
+- Six analytics modules: Platform, Doctor, Patient, System, Summary
+- Single analytics service (`AnalyticsService`) — 5 public methods, 12+ private helpers
+- Platform analytics: entity counts across 11 entities, daily/weekly/monthly activity trends, growth metrics (30-day lookback with percentage)
+- Doctor analytics: KPIs (appointments, patients, visits, prescriptions, records), averages (per day/week), recent activity
+- Patient analytics: clinical summary (visits, appointments, prescriptions, records, medications), timeline summary
+- System analytics: most active doctors ranking, registration trends (daily/monthly), appointment utilization rate, prescription/visit/notification trends
+- Summary: aggregated summary cards for all entity types
+- All endpoints support optional `date_from`/`date_to` date range filtering
+- RBAC: Admin→all, Doctor→own, Patient→own
+- Single-query GROUP BY patterns for time-series aggregations
+- 50 tests covering auth, RBAC, counts, date filters, edge cases, response shapes
+
+### Enterprise Cache Platform
+- `CacheProvider` abstraction with `MemoryCacheProvider` (in-memory, thread-safe, TTL expiry) and `RedisCacheProvider` (Redis-backed with SCAN pattern clear, pipeline operations)
+- `CacheService` — static-method service for key naming, get/set/get_or_set, invalidation by key or namespace, bulk operations, all TTL-tiered
+- `FeatureFlags` — cache-based feature flag enable/disable/check
+- Cache integrated into 5 services: DashboardService (5-min TTL), AnalyticsService (5-min TTL), SearchService (1-min TTL), NotificationService (1-min TTL + invalidation on mutations), MedicineService (1-hour TTL + invalidation on mutations)
+- Cache key convention: `{redis_prefix}:v1:{namespace}:{parts}`
+- Config-driven: `CACHE_PROVIDER`, `REDIS_URL`, `REDIS_PREFIX`, 6 TTL settings
+- 53 tests (provider operations, service layer, feature flags, TTL/eviction, integration benchmarks)
+
 ### Automated Testing
-- 309 tests across all modules
+- 454 tests across all modules
 - Isolated test database (SQLite)
 - Transaction rollback per test
 
@@ -196,6 +218,7 @@ Doctor reviews progress before next consultation. *(Planned)*
 | `/notifications` | CRUD + mark-read + archive | Admin for write; any role for read (own) |
 | `/search` | GET /search | Authenticated (RBAC-filtered) |
 | `/dashboard` | GET /doctor, /patient, /admin | Role-restricted |
+| `/analytics` | GET /platform, /doctor, /patient, /system, /summary | Role-restricted |
 | `/chat` | POST | Public (stub) |
 | `/` | GET | Public |
 | `/health` | GET | Public |
@@ -246,13 +269,28 @@ Doctor reviews progress before next consultation. *(Planned)*
 - DashboardService aggregation layer
 - 3 GET endpoints: `/dashboard/doctor`, `/dashboard/patient`, `/dashboard/admin`
 
+### Sprint 3.8.4 — ✅ Complete
+- Enterprise Analytics APIs (50 tests)
+- Platform, Doctor, Patient, System, Summary analytics modules
+- AnalyticsService with 5 public methods, single-query GROUP BY patterns
+- 5 GET endpoints: `/analytics/platform`, `/analytics/doctor`, `/analytics/patient`, `/analytics/system`, `/analytics/summary`
+- Date-range filtering, growth metrics, utilization rates, most-active-doctor rankings
+- RBAC: Admin→all, Doctor→own, Patient→own
+
+### Volume 6 — ✅ Complete (Enterprise Cache Platform)
+- CacheProvider abstraction (MemoryCacheProvider, RedisCacheProvider)
+- CacheService with TTL tiers, key naming convention, invalidation
+- Feature flags via cache
+- Cache integration in Dashboard, Analytics, Search, Notification, Medicine services
+- Config-driven: `CACHE_PROVIDER`, `REDIS_URL`, `REDIS_PREFIX`, 6 TTL settings
+- 53 cache tests, all 454 tests passing
+
 ---
 
 ## Upcoming Roadmap *(Planned)*
-- AI Chat integration with healthcare context
-- Patient timeline aggregation service (enhancement)
-- Audit Log integration into remaining services
-- File upload support for lab reports
-- Analytics/BI dashboard enhancements
-- Real-time dashboards (WebSocket)
-- Redis caching for dashboard aggregation
+- Volume 7: Enterprise API Protection (rate limiting, brute-force prevention)
+- Volume 8: Enterprise Storage Platform (S3, signed URLs, file upload)
+- Volume 9: Production Deployment (Docker, PostgreSQL, Redis, Nginx)
+- Volume 10: Enterprise Observability (Prometheus, OpenTelemetry, structured logging)
+- Volume 11: Enterprise Performance Optimization (index review, N+1 detection)
+- Volume 12: Enterprise Security Hardening (OWASP Top 10, PHI handling, encryption)

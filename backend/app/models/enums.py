@@ -45,3 +45,26 @@ class NotificationStatus(enum.Enum):
     UNREAD = "unread"
     READ = "read"
     ARCHIVED = "archived"
+
+
+class JobStatus(enum.Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    RETRYING = "retrying"
+    CANCELLED = "cancelled"
+    SCHEDULED = "scheduled"
+
+
+class JobType(enum.Enum):
+    APPOINTMENT_REMINDER = "appointment_reminder"
+    MEDICATION_REMINDER = "medication_reminder"
+    UNREAD_NOTIFICATION_REMINDER = "unread_notification_reminder"
+    ANALYTICS_REFRESH = "analytics_refresh"
+    DASHBOARD_CACHE_REFRESH = "dashboard_cache_refresh"
+    SEARCH_INDEX_REFRESH = "search_index_refresh"
+    AUDIT_CLEANUP = "audit_cleanup"
+    EXPIRED_NOTIFICATION_CLEANUP = "expired_notification_cleanup"
+    TEMP_FILE_CLEANUP = "temp_file_cleanup"
+    DATABASE_MAINTENANCE = "database_maintenance"

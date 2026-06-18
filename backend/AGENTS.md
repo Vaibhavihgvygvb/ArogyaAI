@@ -25,14 +25,20 @@ ArogyaAI is an AI-powered healthcare continuity platform. The backend is a REST 
 backend/
 ├── app/
 │   ├── api/           # Route handlers (routers)
+│   ├── cache/         # Cache platform (providers, service, feature flags)
 │   ├── core/          # Config, security, logging
 │   ├── database/      # Engine, session, Base
 │   ├── models/        # SQLAlchemy models
+│   ├── ratelimit/     # Rate limiting platform (providers, middleware, deps)
 │   ├── schemas/       # Pydantic request/response schemas
-│   └── services/      # Business logic layer
+│   └── services/      # Business logic layer (CRUD + DashboardService + AnalyticsService)
 ├── tests/
 │   ├── conftest.py    # Fixtures, test DB
-│   └── test_smoke.py  # Smoke tests
+│   ├── test_smoke.py  # Smoke tests
+│   ├── test_analytics.py  # Analytics tests
+│   ├── test_cache.py      # Cache tests
+│   ├── test_ratelimit.py  # Rate limit tests
+│   └── ...            # Other test files
 ├── alembic/           # Database migrations
 └── docs/              # Project documentation
 ```
@@ -88,11 +94,12 @@ backend/
 - `exclude_unset=True` for partial updates
 
 ### Services (`app/services/`)
-- All database operations (CRUD)
+- All database operations (CRUD + analytics)
 - Business rules and validation beyond type checking
 - Static methods only; no state
-- Return ORM objects or `None`; never raise HTTP exceptions
+- Return ORM objects or `None` (CRUD), `AnalyticsService` returns Pydantic response objects
 - Accept `db: Session` as first parameter, user/data objects as needed
+- `AnalyticsService` follows the same static-method pattern but returns schema objects directly
 
 ### APIs (`app/api/`)
 - Route definitions with HTTP method, path, response model, status codes
@@ -161,7 +168,7 @@ alembic downgrade -1
 alembic current
 ```
 
-Current migration: `a0e420dac08c` (initial_complete_schema) — creates all 5 tables.
+Current migration: `a1c0304461c0` (add_notifications_table) — latest of 7 migration files.
 
 ---
 
@@ -173,12 +180,16 @@ python -m pytest tests/ -v
 
 # Run with coverage
 python -m pytest tests/ --cov=app
+
+# Run specific test file
+python -m pytest tests/test_analytics.py -v
 ```
 
 - Tests use isolated `test.db` SQLite (never touches `arogyaai.db`)
 - `get_db` is overridden to use test database
 - Each test gets a fresh transaction that rolls back on cleanup
 - Fixtures: `db`, `client`, `doctor_token`, `patient_token`, `admin_token`, `doctor_with_profile`, `patient_with_profile`
+- Total test count: 489 tests across 13 test files
 
 ---
 
@@ -236,3 +247,55 @@ python -m pytest tests/ --cov=app
 - `DashboardService` aggregates data efficiently (no N+1, single queries)
 - 3 GET endpoints: `/dashboard/doctor`, `/dashboard/patient`, `/dashboard/admin`
 - 50 tests covering auth, RBAC, edge cases, response shape
+
+### Sprint 3.8.4 — Complete
+- Enterprise Analytics APIs (Platform, Doctor, Patient, System, Summary)
+- `AnalyticsService` — reusable layer with 5 public methods, 12+ private helpers
+- 5 GET endpoints: `/analytics/platform`, `/analytics/doctor`, `/analytics/patient`, `/analytics/system`, `/analytics/summary`
+- Single-query GROUP BY patterns for time-series trends (daily/weekly/monthly)
+- Growth metrics, utilization rates, most-active-doctor rankings
+- Date-range filtering on all analytics endpoints
+- RBAC: Admin→all, Doctor→own, Patient→own
+- 50 tests covering auth, RBAC, counts, aggregations, date filters, edge cases, response shape
+
+### Sprint 3.8.5 — Complete
+- JobStatus/JobType enums, Job SQLAlchemy model
+- Alembic migration `2d5dc9f0cccb` (add_jobs_table)
+- Job schemas (create, response, update, retry, list, health)
+- Job abstraction layer: JobRegistry, APSchedulerProvider (dev), InProcessWorker
+- 10 health-task handlers via registry
+- JobService — 9 static methods (submit, list, get, update, delete, retry, cancel, health, status)
+- 6 job REST endpoints (all Admin-only): POST/GET /jobs, GET /jobs/health, GET/DELETE /jobs/{id}, POST /jobs/{id}/retry, POST /jobs/{id}/cancel
+- Fixed route ordering: `/jobs/health` before `/{job_id}`
+- Migrated `on_event` → FastAPI `lifespan` context manager (fixes DeprecationWarning)
+- 42 tests (auth, RBAC, CRUD, edge cases, response shape)
+
+### Volume 6 — Complete (Enterprise Cache Platform)
+- `CacheProvider` abstract base class with `CacheStats`, `CacheEntry`, `TTL` constants
+- `MemoryCacheProvider` — thread-safe in-memory dict with TTL expiry, pattern-based clear, hit/miss/eviction tracking
+- `RedisCacheProvider` — Redis-backed provider with SCAN-based pattern clear, pipeline operations
+- `CacheService` — static-method service with `build_key`, `get`, `set`, `get_or_set`, `invalidate_key`, `invalidate_namespace`, `clear_all`, `get_stats`, `get_many`
+- Cache key naming convention: `{redis_prefix}:v1:{namespace}:{parts}`
+- `FeatureFlags` — flag enable/disable/check via cache, namespaced under `feature`
+- `get_cache_provider()` / `set_cache_provider()` / `reset_cache_provider()` singletons (overrideable for tests)
+- DashboardService caching: all 3 dashboard methods with 5-min TTL
+- AnalyticsService caching: all 5 analytics methods with 5-min TTL
+- SearchService caching: global_search results with 1-min TTL
+- NotificationService caching: unread count with 1-min TTL + invalidation on create/mark-read/delete
+- MedicineService caching: get/list/search with 1-hour TTL + invalidation on create/update/delete
+- Cache settings added to `config.py`: `CACHE_PROVIDER`, `REDIS_URL`, `REDIS_PREFIX`, 6 TTL settings
+- 53 tests (provider, service, feature flags, TTL/eviction, integration with 5 services, benchmarks)
+
+### Volume 7 — Complete (Enterprise API Protection)
+- `RateLimiter` abstract base class with `RateLimitResult`, `RateLimitRule`, `RateLimitScope`
+- `MemoryRateLimiter` — sliding-window log using deque per key, thread-safe, TTL-based expiry
+- `RedisRateLimiter` — Redis-backed sliding window using sorted sets (ZREMRANGEBYSCORE + ZADD + ZCARD)
+- `RateLimitMiddleware` — FastAPI middleware applying IP-based limits to all endpoints
+- Public endpoint overrides: `/auth/login` (5/min), `/auth/register` (3/hour)
+- `rate_limit()` dependency factory for per-endpoint user-specific limits
+- `get_rate_limiter()` / `set_rate_limiter()` / `reset_rate_limiter()` singletons (overrideable for tests)
+- Response headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, `Retry-After`
+- 429 JSON responses with `retry_after_seconds` detail
+- Config-driven: `RATE_LIMIT_ENABLED`, `RATE_LIMIT_PROVIDER`, `RATE_LIMIT_DEFAULT`, `RATE_LIMIT_AUTHENTICATED`, `RATE_LIMIT_LOGIN_MAX`, `RATE_LIMIT_REGISTER_MAX`, `RATE_LIMIT_BURST_MULTIPLIER`
+- 35 tests (rule/result models, memory limiter, sliding window, login protection, 429 responses, edge cases, concurrent access)
+- All 489 tests passing, no regressions

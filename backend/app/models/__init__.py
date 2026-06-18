@@ -1,4 +1,4 @@
-from app.models.enums import UserRole, AppointmentStatus, NotificationType, NotificationPriority, NotificationStatus
+from app.models.enums import UserRole, AppointmentStatus, NotificationType, NotificationPriority, NotificationStatus, JobStatus, JobType
 from app.models.user import User
 from app.models.doctor import Doctor
 from app.models.patient import Patient
@@ -10,3 +10,4 @@ from app.models.medicine import Medicine
 from app.models.medical_record import MedicalRecord
 from app.models.audit_log import AuditLog
 from app.models.notification import Notification
+from app.models.job import Job

@@ -21,12 +21,18 @@ Presentation Layer (Swagger UI / Client)
        │                     ↓
        ├── Search Router → SearchService (cross-entity search, RBAC)
        │                     ↓
-       └── Dashboard Router → DashboardService (aggregation layer)
-                                ↓
+       ├── Dashboard Router → DashboardService (aggregation layer)
+       │                       ↓
+       ├── Analytics Router → AnalyticsService (analytics/KPI layer)
+       │                       ↓
+       └── Jobs Router → JobService (background task orchestration)
+                            ↓
 Dependency Layer (app/api/deps.py) — Auth, role checks
        ↓
- Service Layer (app/services/) — Business logic, DB operations
-       ↓
+ Service Layer (app/services/) — Business logic, DB operations + AnalyticsService
+       ↓        ↑
+       └────────┴── Cache Layer (app/cache/) — CacheService, FeatureFlags
+                         ↓
    Schema Layer (app/schemas/) — Pydantic request/response models
        ↓
    Model Layer (app/models/) — SQLAlchemy table definitions
@@ -35,6 +41,8 @@ Dependency Layer (app/api/deps.py) — Auth, role checks
        ↓
       SQLite / PostgreSQL
 ```
+
+The Cache Layer sits alongside the Service Layer as a cross-cutting concern. Services call `CacheService` methods directly for get/set/invalidation. The `CacheProvider` abstraction allows swapping between in-memory (`MemoryCacheProvider`), Redis (`RedisCacheProvider`), or future cluster providers without changing business logic.
 
 ---
 
@@ -58,15 +66,31 @@ backend/
 │   │   ├── notification.py # CRUD /notifications
 │   │   ├── search.py     # GET /search
 │   │   ├── dashboard.py  # GET /dashboard/*
+│   │   ├── analytics.py  # GET /analytics/*
+│   │   ├── jobs.py       # POST/GET /jobs, /jobs/health
 │   │   ├── chat.py       # POST /chat (stub)
 │   │   └── deps.py       # get_current_user, require_roles, etc.
+│   ├── cache/            # Cache platform
+│   │   ├── base.py       # CacheProvider ABC, CacheEntry, CacheStats, TTL constants
+│   │   ├── deps.py       # get_cache_provider, set_cache_provider, reset_cache_provider
+│   │   ├── service.py    # CacheService (key naming, get/set, invalidation, stats)
+│   │   ├── feature_flags.py # FeatureFlags (enable/disable/check via cache)
+│   │   └── providers/
+│   │       ├── memory.py # MemoryCacheProvider (thread-safe, TTL, pattern clear)
+│   │       └── redis.py  # RedisCacheProvider (SCAN, pipeline, JSON serialization)
 │   ├── core/
-│   │   ├── config.py     # Pydantic Settings (env-based)
+│   │   ├── config.py     # Pydantic Settings (env-based, includes cache settings)
 │   │   ├── security.py   # JWT, bcrypt
 │   │   └── logging.py    # Logging configuration
 │   ├── database/
 │   │   ├── base.py       # DeclarativeBase
 │   │   └── session.py    # Engine, SessionLocal, get_db
+│   ├── jobs/             # Background job orchestration
+│   │   ├── base.py       # JobDefinition, WorkerBase, SchedulerProvider
+│   │   ├── registry.py   # JobRegistry (job_type → handler mapping)
+│   │   ├── scheduler.py  # APSchedulerProvider (dev scheduler)
+│   │   ├── tasks/        # Task handlers
+│   │   └── workers/      # Worker implementations
 │   ├── models/
 │   │   ├── user.py       # User (roles, auth)
 │   │   ├── doctor.py     # Doctor profile
@@ -81,12 +105,15 @@ backend/
 │   │   ├── audit_log.py  # Audit trail
 │   │   └── enums.py      # UserRole, AppointmentStatus, Notification enums
 │   ├── schemas/          # Pydantic request/response schemas
-│   └── services/         # Business logic (CRUD + DashboardService)
+│   └── services/         # Business logic (CRUD + DashboardService + AnalyticsService + CacheService)
 ├── tests/
-│   ├── conftest.py       # Fixtures, test DB
+│   ├── conftest.py       # Fixtures, test DB, cache provider
 │   ├── test_smoke.py     # 12 smoke tests
 │   ├── test_search.py    # 72 search tests
-│   └── test_dashboard.py # 50 dashboard tests
+│   ├── test_dashboard.py # 50 dashboard tests
+│   ├── test_analytics.py # 50 analytics tests
+│   ├── test_cache.py     # 53 cache tests
+│   └── ...               # Other test files
 ├── alembic/              # Migrations
 └── docs/                 # Project documentation
 ```
@@ -237,17 +264,28 @@ audit_logs (AuditLog) — standalone audit trail
 
 ```
 api/ ───> services/ ───> schemas/ ───> models/ ───> database/
-  │                                                        │
-  └────────> deps.py ──> core/security.py                  │
-                           │                               │
-                           └──> core/config.py              │
-                                                           │
-                          core/logging.py ─────────────────┘
+  │         │               │                           │
+  │         ├──> cache/     │      (cache import)        │
+  │         │    service.py                               │
+  │         │    feature_flags.py                         │
+  │         │       │                                     │
+  │         │       └──> cache/deps.py                    │
+  │         │              │                              │
+  │         │              └──> cache/providers/          │
+  │         │                     memory.py               │
+  │         │                     redis.py                │
+  │         │                                             │
+  └────────> deps.py ──> core/security.py                 │
+                           │                              │
+                           └──> core/config.py             │
+                                                          │
+                          core/logging.py ────────────────┘
 ```
 
-- Models never import from services, schemas, or api
-- Services import from models and schemas only
+- Models never import from services, schemas, cache, or api
+- Services import from models, schemas, and cache (CacheService for caching)
 - API imports from services, schemas, models, and deps
+- Cache layer is a cross-cutting concern: services import CacheService directly
 - Core modules (config, security, logging) are standalone
 - Tests import from app, override `get_db` to isolate database
 

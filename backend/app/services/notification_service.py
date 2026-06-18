@@ -4,6 +4,8 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select, func as sa_func, or_
 from sqlalchemy.orm import Session
 
+from app.cache.service import CacheService
+from app.core.config import settings
 from app.models.notification import Notification
 from app.models.user import User
 from app.models.enums import NotificationType, NotificationPriority, NotificationStatus, UserRole
@@ -81,6 +83,9 @@ class NotificationService:
         db.add(notification)
         db.commit()
         db.refresh(notification)
+        CacheService.invalidate_key(
+            CacheService.build_key(CacheService.NAMESPACE_NOTIFICATION, "unread", str(notification_data.user_id))
+        )
         return notification
 
     @staticmethod
@@ -146,6 +151,9 @@ class NotificationService:
             notification.read_at = datetime.now(timezone.utc)
             db.commit()
             db.refresh(notification)
+        CacheService.invalidate_key(
+            CacheService.build_key(CacheService.NAMESPACE_NOTIFICATION, "unread", str(notification.user_id))
+        )
         return notification
 
     @staticmethod
@@ -165,6 +173,9 @@ class NotificationService:
             n.is_read = True
             n.read_at = now
         db.commit()
+        CacheService.invalidate_key(
+            CacheService.build_key(CacheService.NAMESPACE_NOTIFICATION, "unread", str(user_id))
+        )
         return len(notifications)
 
     @staticmethod
@@ -189,6 +200,9 @@ class NotificationService:
             n.is_read = True
             n.read_at = now
         db.commit()
+        CacheService.invalidate_key(
+            CacheService.build_key(CacheService.NAMESPACE_NOTIFICATION, "unread", str(user_id))
+        )
         return len(notifications)
 
     @staticmethod
@@ -223,19 +237,29 @@ class NotificationService:
         notification = NotificationService._validate_notification_exists(db, notification_id)
         if not notification:
             return None
+        user_id = notification.user_id
         db.delete(notification)
         db.commit()
+        CacheService.invalidate_key(
+            CacheService.build_key(CacheService.NAMESPACE_NOTIFICATION, "unread", str(user_id))
+        )
         return notification
 
     @staticmethod
     def get_unread_count(db: Session, user_id: int) -> int:
+        cache_key = CacheService.build_key(CacheService.NAMESPACE_NOTIFICATION, "unread", str(user_id))
+        cached = CacheService.get(cache_key)
+        if cached is not None:
+            return cached
         count = db.scalar(
             select(sa_func.count(Notification.id)).where(
                 Notification.user_id == user_id,
                 Notification.status == NotificationStatus.UNREAD,
             )
         )
-        return count or 0
+        result = count or 0
+        CacheService.set(cache_key, result, ttl=settings.CACHE_TTL_NOTIFICATION)
+        return result
 
     @staticmethod
     def notify_appointment_created(db: Session, user_id: int, **kwargs) -> Notification:

@@ -5,6 +5,8 @@ from datetime import datetime
 from sqlalchemy import select, func, or_
 from sqlalchemy.orm import Session, joinedload
 
+from app.cache.service import CacheService
+from app.core.config import settings
 from app.models.user import User
 from app.models.doctor import Doctor
 from app.models.patient import Patient
@@ -601,6 +603,18 @@ class SearchService:
         query = query.strip()[:_MAX_QUERY_LENGTH]
         skip = (page - 1) * page_size
 
+        cache_key = CacheService.build_key(
+            CacheService.NAMESPACE_SEARCH, entity or "all",
+            str(user.id), query, str(page), str(page_size),
+            sort_order, str(date_from or ""), str(date_to or ""),
+            str(doctor_id or ""), str(patient_id or ""),
+        )
+        cached = CacheService.get(cache_key)
+        if cached is not None:
+            items_data, total = cached
+            items = [SearchResultItem(**i) if isinstance(i, dict) else i for i in items_data]
+            return items, total
+
         if entity:
             method_name = f"_search_{entity}"
             method = getattr(SearchService, method_name, None)
@@ -616,6 +630,7 @@ class SearchService:
             )
             if sort_order == "asc":
                 results.reverse()
+            CacheService.set(cache_key, (results, total), ttl=settings.CACHE_TTL_SEARCH)
             return results, total
 
         all_results: list[SearchResultItem] = []
@@ -633,4 +648,5 @@ class SearchService:
         all_results.sort(key=lambda r: r.created_at or datetime.min, reverse=(sort_order != "asc"))
         total = len(all_results)
         paginated = all_results[skip:skip + page_size]
+        CacheService.set(cache_key, (paginated, total), ttl=settings.CACHE_TTL_SEARCH)
         return paginated, total

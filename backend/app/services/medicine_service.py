@@ -1,6 +1,8 @@
 from sqlalchemy import select, or_
 from sqlalchemy.orm import Session
 
+from app.cache.service import CacheService
+from app.core.config import settings
 from app.models.medicine import Medicine
 from app.schemas.medicine import (
     MedicineCreate,
@@ -67,11 +69,18 @@ class MedicineService:
         db.add(medicine)
         db.commit()
         db.refresh(medicine)
+        CacheService.invalidate_namespace(CacheService.NAMESPACE_MEDICINE)
         return medicine
 
     @staticmethod
     def get_medicine(db: Session, medicine_id: int) -> Medicine | None:
-        return db.get(Medicine, medicine_id)
+        cache_key = CacheService.build_key(CacheService.NAMESPACE_MEDICINE, "item", str(medicine_id))
+        cached = CacheService.get(cache_key)
+        if cached is not None:
+            return Medicine(**cached) if cached else None
+        result = db.get(Medicine, medicine_id)
+        CacheService.set(cache_key, result, ttl=settings.CACHE_TTL_MEDICINE)
+        return result
 
     @staticmethod
     def list_medicines(
@@ -85,8 +94,18 @@ class MedicineService:
         route: str | None = None,
         is_active: bool | None = None,
     ) -> list[Medicine]:
-        stmt = select(Medicine)
+        cache_key = CacheService.build_key(
+            CacheService.NAMESPACE_MEDICINE, "list",
+            str(skip), str(limit),
+            str(generic_name or ""), str(manufacturer or ""),
+            str(drug_class or ""), str(dosage_form or ""),
+            str(route or ""), str(is_active or ""),
+        )
+        cached = CacheService.get(cache_key)
+        if cached is not None:
+            return [Medicine(**m) for m in cached]
 
+        stmt = select(Medicine)
         if generic_name:
             stmt = stmt.where(Medicine.generic_name.ilike(f"%{generic_name}%"))
         if manufacturer:
@@ -101,7 +120,9 @@ class MedicineService:
             stmt = stmt.where(Medicine.is_active == is_active)
 
         stmt = stmt.offset(skip).limit(limit)
-        return list(db.scalars(stmt).all())
+        result = list(db.scalars(stmt).all())
+        CacheService.set(cache_key, result, ttl=settings.CACHE_TTL_MEDICINE)
+        return result
 
     @staticmethod
     def update_medicine(
@@ -132,6 +153,7 @@ class MedicineService:
             setattr(medicine, key, value)
         db.commit()
         db.refresh(medicine)
+        CacheService.invalidate_namespace(CacheService.NAMESPACE_MEDICINE)
         return medicine
 
     @staticmethod
@@ -141,6 +163,7 @@ class MedicineService:
             return None
         db.delete(medicine)
         db.commit()
+        CacheService.invalidate_namespace(CacheService.NAMESPACE_MEDICINE)
         return medicine
 
     @staticmethod
@@ -150,6 +173,13 @@ class MedicineService:
         skip: int = 0,
         limit: int = 100,
     ) -> list[Medicine]:
+        cache_key = CacheService.build_key(
+            CacheService.NAMESPACE_MEDICINE, "search", q, str(skip), str(limit),
+        )
+        cached = CacheService.get(cache_key)
+        if cached is not None:
+            return [Medicine(**m) for m in cached]
+
         pattern = f"%{q}%"
         stmt = (
             select(Medicine)
@@ -162,4 +192,6 @@ class MedicineService:
             .offset(skip)
             .limit(limit)
         )
-        return list(db.scalars(stmt).all())
+        result = list(db.scalars(stmt).all())
+        CacheService.set(cache_key, result, ttl=settings.CACHE_TTL_MEDICINE)
+        return result
