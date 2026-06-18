@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.models.visit import Visit
+from app.models.enums import UserRole
 from app.schemas.visit import VisitCreate, VisitUpdate
 
 
@@ -19,18 +20,20 @@ class VisitService:
         return db.get(Visit, visit_id)
 
     @staticmethod
-    def get_all_visits(db: Session, skip: int = 0, limit: int = 100) -> list[Visit]:
-        stmt = select(Visit).offset(skip).limit(limit)
-        return list(db.scalars(stmt).all())
-
-    @staticmethod
-    def get_visits_by_patient(db: Session, patient_id: int) -> list[Visit]:
-        stmt = select(Visit).where(Visit.patient_id == patient_id)
-        return list(db.scalars(stmt).all())
-
-    @staticmethod
-    def get_visits_by_doctor(db: Session, doctor_id: int) -> list[Visit]:
-        stmt = select(Visit).where(Visit.doctor_id == doctor_id)
+    def get_all_visits(
+        db: Session,
+        skip: int = 0,
+        limit: int = 100,
+        user_role: UserRole | None = None,
+        user_doctor_id: int | None = None,
+        user_patient_id: int | None = None,
+    ) -> list[Visit]:
+        stmt = select(Visit)
+        if user_role == UserRole.DOCTOR and user_doctor_id:
+            stmt = stmt.where(Visit.doctor_id == user_doctor_id)
+        elif user_role == UserRole.PATIENT and user_patient_id:
+            stmt = stmt.where(Visit.patient_id == user_patient_id)
+        stmt = stmt.offset(skip).limit(limit)
         return list(db.scalars(stmt).all())
 
     @staticmethod

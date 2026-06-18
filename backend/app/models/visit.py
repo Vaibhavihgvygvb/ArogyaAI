@@ -22,3 +22,5 @@ class Visit(Base):
 
     doctor: Mapped[Doctor] = relationship(back_populates="visits")
     patient: Mapped[Patient] = relationship(back_populates="visits")
+    prescriptions: Mapped[list[Prescription]] = relationship(back_populates="visit")
+    medical_record: Mapped[MedicalRecord | None] = relationship(back_populates="visit", uselist=False)
