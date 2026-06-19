@@ -1,0 +1,16 @@
+from pydantic_settings import BaseSettings
+
+
+class EvidenceConfig(BaseSettings):
+    EVIDENCE_ENABLED: bool = True
+    EVIDENCE_MIN_CONFIDENCE_THRESHOLD: float = 0.5
+    EVIDENCE_CITATION_REQUIRED: bool = True
+    EVIDENCE_DEFAULT_STYLE: str = "ama"
+    EVIDENCE_MAX_SPANS: int = 50
+    EVIDENCE_MAX_CITATIONS: int = 100
+    EVIDENCE_MAX_SOURCES: int = 50
+    EVIDENCE_COVERAGE_MIN_SCORE: float = 0.3
+    EVIDENCE_CONFLICT_THRESHOLD: float = 0.15
+    EVIDENCE_PROVENANCE_ENABLED: bool = True
+    EVIDENCE_EXPLANATION_ENABLED: bool = True
+    EVIDENCE_SUITABLE_FOR_AI_THRESHOLD: float = 0.4

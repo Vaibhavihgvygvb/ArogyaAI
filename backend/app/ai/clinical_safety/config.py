@@ -1,0 +1,16 @@
+from pydantic_settings import BaseSettings
+
+
+class ClinicalSafetyConfig(BaseSettings):
+    CLINICAL_SAFETY_ENABLED: bool = True
+    CLINICAL_SAFETY_HALLUCINATION_THRESHOLD: float = 0.5
+    CLINICAL_SAFETY_UNSUPPORTED_THRESHOLD: float = 0.4
+    CLINICAL_SAFETY_RISK_LEVEL: str = "standard"
+    CLINICAL_SAFETY_EMERGENCY_OVERRIDE: bool = True
+    CLINICAL_SAFETY_PHI_ENABLED: bool = True
+    CLINICAL_SAFETY_DISCLAIMER_REQUIRED: bool = True
+    CLINICAL_SAFETY_COMPLIANCE_ENABLED: bool = True
+    CLINICAL_SAFETY_APPROVAL_REQUIRED: bool = True
+    CLINICAL_SAFETY_MAX_CLAIMS: int = 100
+    CLINICAL_SAFETY_MIN_EVIDENCE_SCORE: float = 0.3
+    CLINICAL_SAFETY_PROHIBITED_TERMS: str = "guarantee,cure,100%,miracle,secret"

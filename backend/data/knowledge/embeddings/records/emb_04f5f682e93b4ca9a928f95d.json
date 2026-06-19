@@ -1,0 +1,20 @@
+{
+  "id": "emb_04f5f682e93b4ca9a928f95d",
+  "knowledge_id": "__query__",
+  "chunk_id": "query_187207848",
+  "chunk_index": 0,
+  "provider": "mock",
+  "model": "mock-embedding-v1",
+  "dimension": 384,
+  "version": 1,
+  "checksum": "81cf57307b42b2e0",
+  "content_hash": "362fb12b4c440913fe33312a2bb4f10c",
+  "status": "completed",
+  "processing_time_ms": 0.05,
+  "metadata": {
+    "chunk_index": 0,
+    "content_length": 58
+  },
+  "created_at": "2026-06-19T09:16:10.500740+00:00",
+  "updated_at": "2026-06-19T09:16:10.500740+00:00"
+}

@@ -2,6 +2,8 @@ from typing import List
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.ai.config.settings import AISettings
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
@@ -37,6 +39,8 @@ class Settings(BaseSettings):
     RATE_LIMIT_REGISTER_MAX: int = 3
     RATE_LIMIT_REGISTER_WINDOW: int = 3600
     RATE_LIMIT_BURST_MULTIPLIER: int = 2
+
+    AI: AISettings = AISettings()
 
 
 settings = Settings()

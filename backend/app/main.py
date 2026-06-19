@@ -24,6 +24,18 @@ from app.api.search import router as search_router
 from app.api.dashboard import router as dashboard_router
 from app.api.analytics import router as analytics_router
 from app.api.jobs import router as jobs_router
+from app.ai.api.gateway import router as ai_router
+from app.ai.knowledge.api.api import router as knowledge_router
+from app.ai.embeddings.api.api import router as embedding_router
+from app.ai.vector.api.api import router as vector_router
+from app.ai.retrieval.api.api import router as retrieval_router
+from app.ai.medical.api.api import router as medical_router
+from app.ai.medical.api.query_api import router as medical_query_router
+from app.ai.medical.reasoning.api.api import router as medical_reasoning_router
+from app.ai.medical.response.api.api import router as medical_response_router
+from app.ai.evidence.api import router as evidence_router
+from app.ai.clinical_safety.api.api import router as clinical_safety_router
+from app.ai.assistant.api.api import router as assistant_router
 from app.database.session import get_db
 from app.core.config import settings
 from app.core.logging import setup_logging
@@ -75,6 +87,18 @@ app.include_router(search_router)
 app.include_router(dashboard_router)
 app.include_router(analytics_router)
 app.include_router(jobs_router)
+app.include_router(ai_router)
+app.include_router(knowledge_router)
+app.include_router(embedding_router)
+app.include_router(vector_router)
+app.include_router(retrieval_router)
+app.include_router(medical_router)
+app.include_router(medical_query_router)
+app.include_router(medical_reasoning_router)
+app.include_router(medical_response_router)
+app.include_router(evidence_router)
+app.include_router(clinical_safety_router)
+app.include_router(assistant_router)
 
 
 @app.get("/", summary="Root welcome message")
